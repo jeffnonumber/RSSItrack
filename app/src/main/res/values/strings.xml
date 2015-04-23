@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">RSSI Track</string>
+
+    <string name="sIP">Connected WiFi IP :</string>
+    <string name="action_settings">Settings</string>
+    <string name="sRSSI">RSSI Level :</string>
+    <string name="sSSID">Connected SSID  :</string>
+    <string name="sTime">Time :</string>
+
+
+</resources>
