@@ -25,23 +25,22 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.Timer;
 import java.util.TimerTask;
-
 
 public class MainActivity extends ActionBarActivity implements View.OnClickListener{
 
     private TextView textConnected, textIP, textSSID, textRSSI, textTime;
     private Button btnStop;
 
-
     private final Handler myHandler = new Handler(); //Handler for timer
-    //private static final String sDir = Environment.getExternalStorageDirectory().getAbsolutePath();
-    private static final String TAG = "RSSITrack";  //Tag for debug
+    private final String TAG = "RSSITrack";  //Tag for debug
     private ArrayList<DataPoint> lScans = new ArrayList<>();
-    private static Timer myTimer;
-    private static String sRecID;
+    private Timer myTimer;
+    private String sRecID;
 
     //private ConnectivityManager myConnManager;
     private NetworkInfo myNetworkInfo;
@@ -50,19 +49,11 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
 
     private AudioRecord recorder = null;
     private static final int[] intSampleRates = new int[] { 8000, 11025, 22050, 44100 };
-    private static int BufferElements2Rec;
+    private int BufferElements2Rec;
     short sData[];// = new short[BufferElements2Rec];
 
+    boolean bStop = false;
 
-
-
-    //        BUTTON TO CANCEL TIMER
-    //        AND WRITE TO FILE
-    //        THEN SEND FILE
-    //        INTERPRET ON PC
-    //
-    //        STRING S = PHONE ID + NUMBER
-    //
     //        Galaxy - Success at 8000Hz, bits: 2, channel: 16, format: 2, buffer: 1024
     //        One Mini 2 - Success at 8000Hz, bits: 2, channel: 16, format: 2, buffer: 640
 
@@ -83,9 +74,8 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
 
         try {
             recorder = findAudioRecord();
-            //short sData[] = new short[BufferElements2Rec];
             recorder.startRecording();
-            Log.d(TAG, "Recorder state " + recorder.getRecordingState());//3 is good
+            //Log.d(TAG, "Recorder state " + recorder.getRecordingState());//3 is good
         }catch (IllegalArgumentException e){
             e.printStackTrace();
             recorder = null;
@@ -98,7 +88,7 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
         //myWifiInfo = myWifiManager.getConnectionInfo();
 
         String uid = android.os.Build.SERIAL;
-        sRecID = "D"+uid+"T"+System.currentTimeMillis();
+        sRecID = "Dev"+uid+"Time"+System.currentTimeMillis();
 
 
         myTimer = new Timer();
@@ -106,7 +96,6 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
             @Override
             public void run() {
                 myHandler.post(pullData);
-                //DisplayWifiState();
             }
         }, 0, 2000);  //Find a way to increase scan rate?
 
@@ -116,48 +105,32 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
 
     public void onClick(View v) {
         if (v == btnStop) {
+            bStop = true;
             if(fileWrite(sRecID)){
-                myTimer.cancel();
-                this.onStop();
+                this.onPause();
 
-            }else Toast.makeText (this, "Save Failed", Toast.LENGTH_SHORT).show();this.onStop();
+            }else Toast.makeText (this, "Save Failed", Toast.LENGTH_SHORT).show();this.onPause();
         }
     }
-
-    /*@Override
-    public void onDestroy(){
-        if(recorder != null){recorder.stop();recorder.release();recorder=null;}
-        Log.e(TAG, "Cleanup complete ---------------------------------------------------.");
-        super.onDestroy();
-    }*/
-
-
 
     @Override
-    public void onStop(){
+    public void onPause(){
 
         if(recorder != null){
-            recorder.stop();recorder.release();recorder=null;
+            recorder.stop();recorder.release();recorder=null;myTimer.cancel();
             Log.e(TAG, "Cleanup complete ---------------------------------------------------.");
         }
-        super.onStop();
+        super.onPause();
     }
-
-
-   /* private void DisplayWifiState(){
-
-        myHandler.post(pullData);
-
-    }*/
 
     final Runnable pullData = new Runnable() {
         public void run() {
 
-            if (myNetworkInfo.isConnected()){
+            if (myNetworkInfo.isConnected()&&!bStop){
 
 
                 //Log.d(TAG, myWifiInfo.toString());  //Debug print of wifi info
-                //Log.d(TAG, myWifiManager.getScanResults().toString());//Multiple hub support
+                //Log.d(TAG, myWifiManager.getScanResults().toString());//Multiple hub support?
 
                 textConnected.setText("Connected");
                 WifiInfo myWifiInfo = myWifiManager.getConnectionInfo();
@@ -167,16 +140,15 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
                 String sIP = Formatter.formatIpAddress(myIp);//Will not work with IPV6
                 String sSSID = myWifiInfo.getSSID();
                 String sRSSI = String.valueOf(myWifiInfo.getRssi());
-                Log.d(TAG,sRSSI);
+                //Log.d(TAG,sRSSI);
                 long lTime = System.currentTimeMillis();
-                String sTime = lTime+"ms";
+                String sTime = getGoodTime(lTime);
 
                 textIP.setText(sIP);
                 textSSID.setText(sSSID);
                 textRSSI.setText(sRSSI);
                 textTime.setText(sTime);
 
-                String sDataString = "";
                 double dAmpMax = 0;
                 sData = new short[BufferElements2Rec];
                 recorder.read(sData, 0, BufferElements2Rec);
@@ -191,9 +163,9 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
                 else Log.d(TAG, "Buffer empty");
 
 
-                lScans.add(new DataPoint(lTime, sRSSI, sSSID, dAmpMax));
+                lScans.add(new DataPoint(sTime, sRSSI, sSSID, dAmpMax));
                 Log.d(TAG, lScans.toString());
-                Log.d(TAG, sDataString);
+                //Log.d(TAG, sDataString);
             }
             else{
                 Log.d(TAG, myNetworkInfo.toString());
@@ -208,7 +180,7 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
     public boolean fileWrite(String s){
 
         try {
-            File myFile = new File(getExternalFilesDir(null), "Datapoint"+s+".txt");
+            File myFile = new File(getExternalFilesDir(null), s+".txt");
             myFile.createNewFile();
             FileOutputStream fOut = new FileOutputStream(myFile);
             OutputStreamWriter myOutWriter = new OutputStreamWriter(fOut);
@@ -236,13 +208,12 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
             for (short audioFormat : new short[] { AudioFormat.ENCODING_PCM_8BIT, AudioFormat.ENCODING_PCM_16BIT }) {
                 for (short channelConfig : new short[] { AudioFormat.CHANNEL_IN_MONO, AudioFormat.CHANNEL_IN_STEREO }) {
                     try {
-                        Log.d(TAG, "Attempting rate " + rate + "Hz, bits: " + audioFormat + ", channel: "
-                                + channelConfig);
+                        Log.d(TAG, "Attempting rate "+rate+"Hz, bits: "+audioFormat+", channel: "+channelConfig);
                         int bufferSize = AudioRecord.getMinBufferSize(rate, channelConfig, audioFormat);
 
                         if (bufferSize != AudioRecord.ERROR_BAD_VALUE) {
                             // check if we can instantiate and have a success
-                            Log.d(TAG, "Success at " + rate + "Hz, bits: " + audioFormat + ", channel: " + channelConfig + ", format: " + audioFormat + ", buffer: " + bufferSize);
+                            Log.d(TAG, "Success at "+rate+"Hz, bits: "+audioFormat+", channel: "+channelConfig+", format: "+audioFormat+", buffer: "+bufferSize);
                             BufferElements2Rec = bufferSize/audioFormat;
                             AudioRecord recorder = new AudioRecord(MediaRecorder.AudioSource.DEFAULT, rate, channelConfig, audioFormat, bufferSize);
 
@@ -265,8 +236,15 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
                         .equals(Environment.getExternalStorageState());
     }*/
 
+    public String getGoodTime(long millis)
+    {
+        if(millis < 0)
+        {
+            throw new IllegalArgumentException("Duration must be greater than zero!");
+        }
 
-
+        return (new SimpleDateFormat("D:mm:ss:SSS")).format(new Date(millis));
+    }
 
 
     @Override

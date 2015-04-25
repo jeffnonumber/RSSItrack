@@ -3,11 +3,10 @@ package com.dougan.rssitrack;
 
 public class DataPoint {
 
-    String RSSI, SSID;
-    long time;
+    String RSSI, SSID, time;
     double ampMax;
 
-    public DataPoint(long time, String level, String SSID, double ampMax){
+    public DataPoint(String time, String level, String SSID, double ampMax){
         this.RSSI = level;
         this.time = time;
         this.SSID = SSID;
