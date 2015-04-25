@@ -6,6 +6,7 @@
     <string name="sRSSI">RSSI Level :</string>
     <string name="sSSID">Connected SSID  :</string>
     <string name="sTime">Time :</string>
+    <string name="sButton">Press to Stop Recording</string>
 
 
 </resources>

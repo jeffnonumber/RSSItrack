@@ -9,37 +9,44 @@ import android.net.NetworkInfo;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.Handler;
 import android.support.v7.app.ActionBarActivity;
 import android.text.format.Formatter;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileWriter;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
 
 
-public class MainActivity extends ActionBarActivity {
+public class MainActivity extends ActionBarActivity implements View.OnClickListener{
 
     private TextView textConnected, textIP, textSSID, textRSSI, textTime;
+    private Button btnStop;
+
 
     private final Handler myHandler = new Handler(); //Handler for timer
-    private static final String sDir = Environment.getExternalStorageDirectory().getAbsolutePath();
+    //private static final String sDir = Environment.getExternalStorageDirectory().getAbsolutePath();
     private static final String TAG = "RSSITrack";  //Tag for debug
     private ArrayList<DataPoint> lScans = new ArrayList<>();
+    private static Timer myTimer;
+    private static String sRecID;
 
     //private ConnectivityManager myConnManager;
     private NetworkInfo myNetworkInfo;
-    //private WifiManager myWifiManager;
-    private WifiInfo myWifiInfo;
+    private WifiManager myWifiManager;
+    //private WifiInfo myWifiInfo;
 
     private AudioRecord recorder = null;
     private static final int[] intSampleRates = new int[] { 8000, 11025, 22050, 44100 };
@@ -71,6 +78,9 @@ public class MainActivity extends ActionBarActivity {
         textRSSI = (TextView)findViewById(R.id.RSSI);
         textTime = (TextView)findViewById(R.id.Time);
 
+        btnStop = (Button) this.findViewById(R.id.btnStop);
+        btnStop.setOnClickListener(this);
+
         try {
             recorder = findAudioRecord();
             //short sData[] = new short[BufferElements2Rec];
@@ -84,13 +94,14 @@ public class MainActivity extends ActionBarActivity {
 
         ConnectivityManager myConnManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
         myNetworkInfo = myConnManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
-        WifiManager myWifiManager = (WifiManager)getSystemService(Context.WIFI_SERVICE);
-        myWifiInfo = myWifiManager.getConnectionInfo();
+        myWifiManager = (WifiManager)getSystemService(Context.WIFI_SERVICE);
+        //myWifiInfo = myWifiManager.getConnectionInfo();
+
+        String uid = android.os.Build.SERIAL;
+        sRecID = "D"+uid+"T"+System.currentTimeMillis();
 
 
-
-
-        Timer myTimer = new Timer();
+        myTimer = new Timer();
         myTimer.schedule(new TimerTask() {
             @Override
             public void run() {
@@ -98,6 +109,19 @@ public class MainActivity extends ActionBarActivity {
                 //DisplayWifiState();
             }
         }, 0, 2000);  //Find a way to increase scan rate?
+
+
+    }
+
+
+    public void onClick(View v) {
+        if (v == btnStop) {
+            if(fileWrite(sRecID)){
+                myTimer.cancel();
+                this.onStop();
+
+            }else Toast.makeText (this, "Save Failed", Toast.LENGTH_SHORT).show();this.onStop();
+        }
     }
 
     /*@Override
@@ -116,7 +140,6 @@ public class MainActivity extends ActionBarActivity {
             recorder.stop();recorder.release();recorder=null;
             Log.e(TAG, "Cleanup complete ---------------------------------------------------.");
         }
-
         super.onStop();
     }
 
@@ -137,12 +160,14 @@ public class MainActivity extends ActionBarActivity {
                 //Log.d(TAG, myWifiManager.getScanResults().toString());//Multiple hub support
 
                 textConnected.setText("Connected");
+                WifiInfo myWifiInfo = myWifiManager.getConnectionInfo();
                 int myIp = myWifiInfo.getIpAddress();
 
 
                 String sIP = Formatter.formatIpAddress(myIp);//Will not work with IPV6
                 String sSSID = myWifiInfo.getSSID();
                 String sRSSI = String.valueOf(myWifiInfo.getRssi());
+                Log.d(TAG,sRSSI);
                 long lTime = System.currentTimeMillis();
                 String sTime = lTime+"ms";
 
@@ -165,7 +190,7 @@ public class MainActivity extends ActionBarActivity {
                 }
                 else Log.d(TAG, "Buffer empty");
 
-                //Date date = new Date();
+
                 lScans.add(new DataPoint(lTime, sRSSI, sSSID, dAmpMax));
                 Log.d(TAG, lScans.toString());
                 Log.d(TAG, sDataString);
@@ -182,30 +207,28 @@ public class MainActivity extends ActionBarActivity {
 
     public boolean fileWrite(String s){
 
-
-
         try {
-            File dataDir = new File(sDir+"/RSSI/");
-            dataDir.mkdirs();
-            deleteFile(dataDir+"Datapoint "+s);
-            File dataFile = new File(dataDir, "Datapoint "+s);
-            FileWriter fw = new FileWriter(dataFile,true);
+            File myFile = new File(getExternalFilesDir(null), "Datapoint"+s+".txt");
+            myFile.createNewFile();
+            FileOutputStream fOut = new FileOutputStream(myFile);
+            OutputStreamWriter myOutWriter = new OutputStreamWriter(fOut);
+            myOutWriter.append(lScans.toString());
+            myOutWriter.close();
+            fOut.close();
 
-
-
-            fw.write(lScans.toString());
-            fw.close();
+            Toast.makeText(getApplicationContext(),"Saved",Toast.LENGTH_LONG).show();
             return true;
 
-        } catch(FileNotFoundException e) {
-            Log.e(TAG, "File not found\n" + e.getStackTrace());
-            System.exit(1);
-        } catch (IOException e) {
-            Log.e(TAG, "IO error\n" + e.getStackTrace());
-            System.exit(1);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+            return false;
+        }
+        catch (IOException e) {
+            e.printStackTrace();
+            return false;
         }
 
-        return false;
+
     }
 
     public AudioRecord findAudioRecord() {
@@ -236,7 +259,11 @@ public class MainActivity extends ActionBarActivity {
     }
 
 
-
+   /* private boolean externalStorageAvailable() {
+        return
+                Environment.MEDIA_MOUNTED
+                        .equals(Environment.getExternalStorageState());
+    }*/
 
 
 
