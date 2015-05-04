@@ -36,25 +36,23 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
     private TextView textConnected, textIP, textSSID, textRSSI, textTime;
     private Button btnStop;
 
-    private final Handler myHandler = new Handler(); //Handler for timer
+    private final Handler hTime = new Handler(); //Handler for timer
     private final String TAG = "RSSITrack";  //Tag for debug
     private ArrayList<DataPoint> lScans = new ArrayList<>();
     private Timer myTimer;
     private String sRecID;
 
-    //private ConnectivityManager myConnManager;
-    private NetworkInfo myNetworkInfo;
-    private WifiManager myWifiManager;
-    //private WifiInfo myWifiInfo;
+    private NetworkInfo nInfo;
+    private WifiManager wManager;
 
     private AudioRecord recorder = null;
     private static final int[] intSampleRates = new int[] { 8000, 11025, 22050, 44100 };
     private int BufferElements2Rec;
-    short sData[];// = new short[BufferElements2Rec];
+    short sData[];
 
     boolean bStop = false;
 
-    //        Galaxy - Success at 8000Hz, bits: 2, channel: 16, format: 2, buffer: 1024
+    //        Galaxy S2 - Success at 8000Hz, bits: 2, channel: 16, format: 2, buffer: 1024
     //        One Mini 2 - Success at 8000Hz, bits: 2, channel: 16, format: 2, buffer: 640
 
     /** Called when the activity is first created. */
@@ -73,19 +71,19 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
         btnStop.setOnClickListener(this);
 
         try {
-            recorder = findAudioRecord();
+            recorder = getAudioParms();
             recorder.startRecording();
             //Log.d(TAG, "Recorder state " + recorder.getRecordingState());//3 is good
         }catch (IllegalArgumentException e){
             e.printStackTrace();
             recorder = null;
+            Toast.makeText (this, "Incompatible Device", Toast.LENGTH_LONG).show();
         }
 
 
-        ConnectivityManager myConnManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
-        myNetworkInfo = myConnManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
-        myWifiManager = (WifiManager)getSystemService(Context.WIFI_SERVICE);
-        //myWifiInfo = myWifiManager.getConnectionInfo();
+        ConnectivityManager cManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+        nInfo = cManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
+        wManager = (WifiManager)getSystemService(Context.WIFI_SERVICE);
 
         String uid = android.os.Build.SERIAL;
         sRecID = "Dev"+uid+"Time"+System.currentTimeMillis();
@@ -95,20 +93,19 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
         myTimer.schedule(new TimerTask() {
             @Override
             public void run() {
-                myHandler.post(pullData);
+                hTime.post(pullData);
             }
         }, 0, 2000);  //Find a way to increase scan rate?
-
-
     }
 
 
     public void onClick(View v) {
         if (v == btnStop) {
             bStop = true;
-            if(fileWrite(sRecID)){
+            //if(fileWrite(sRecID))
+            if(FileWrite.toFile(lScans, new File(getExternalFilesDir(null), sRecID + ".txt"))){
+                Toast.makeText(getApplicationContext(),"Saved",Toast.LENGTH_LONG).show();
                 this.onPause();
-
             }else Toast.makeText (this, "Save Failed", Toast.LENGTH_SHORT).show();this.onPause();
         }
     }
@@ -126,23 +123,24 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
     final Runnable pullData = new Runnable() {
         public void run() {
 
-            if (myNetworkInfo.isConnected()&&!bStop){
+            if (nInfo.isConnected()&&!bStop){
 
 
-                //Log.d(TAG, myWifiInfo.toString());  //Debug print of wifi info
-                //Log.d(TAG, myWifiManager.getScanResults().toString());//Multiple hub support?
+                //Log.d(TAG, wInfo.toString());  //Debug print of wifi info
+                //Log.d(TAG, wManager.getScanResults().toString());//Multiple hub support?
 
                 textConnected.setText("Connected");
-                WifiInfo myWifiInfo = myWifiManager.getConnectionInfo();
-                int myIp = myWifiInfo.getIpAddress();
+                WifiInfo wInfo = wManager.getConnectionInfo();
+                int myIp = wInfo.getIpAddress();
 
 
-                String sIP = Formatter.formatIpAddress(myIp);//Will not work with IPV6
-                String sSSID = myWifiInfo.getSSID();
-                String sRSSI = String.valueOf(myWifiInfo.getRssi());
+
+                String sIP = Formatter.formatIpAddress(myIp);//Will not work with IPV6, not essential
+                String sSSID = wInfo.getSSID();
+                String sRSSI = String.valueOf(wInfo.getRssi());
                 //Log.d(TAG,sRSSI);
                 long lTime = System.currentTimeMillis();
-                String sTime = getGoodTime(lTime);
+                String sTime = getGoodTime(lTime);//Not here for a long time
 
                 textIP.setText(sIP);
                 textSSID.setText(sSSID);
@@ -164,11 +162,11 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
 
 
                 lScans.add(new DataPoint(sTime, sRSSI, sSSID, dAmpMax));
-                Log.d(TAG, lScans.toString());
+                //Log.d(TAG, lScans.toString());
                 //Log.d(TAG, sDataString);
             }
             else{
-                Log.d(TAG, myNetworkInfo.toString());
+                Log.d(TAG, nInfo.toString());
                 textConnected.setText("Not Connected");
                 textIP.setText("Not Connected");
                 textSSID.setText("Not Connected");
@@ -177,15 +175,15 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
         }
     };
 
-    public boolean fileWrite(String s){
+/*    public boolean fileWrite(String s){
 
         try {
-            File myFile = new File(getExternalFilesDir(null), s+".txt");
-            myFile.createNewFile();
-            FileOutputStream fOut = new FileOutputStream(myFile);
-            OutputStreamWriter myOutWriter = new OutputStreamWriter(fOut);
-            myOutWriter.append(lScans.toString());
-            myOutWriter.close();
+            File file = new File(getExternalFilesDir(null), s+".txt");
+            file.createNewFile();
+            FileOutputStream fOut = new FileOutputStream(file);
+            OutputStreamWriter outWriter = new OutputStreamWriter(fOut);
+            outWriter.append(lScans.toString());
+            outWriter.close();
             fOut.close();
 
             Toast.makeText(getApplicationContext(),"Saved",Toast.LENGTH_LONG).show();
@@ -199,29 +197,25 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
             e.printStackTrace();
             return false;
         }
+    }*/
 
-
-    }
-
-    public AudioRecord findAudioRecord() {
+    public AudioRecord getAudioParms() {
         for (int rate : intSampleRates) {
             for (short audioFormat : new short[] { AudioFormat.ENCODING_PCM_8BIT, AudioFormat.ENCODING_PCM_16BIT }) {
                 for (short channelConfig : new short[] { AudioFormat.CHANNEL_IN_MONO, AudioFormat.CHANNEL_IN_STEREO }) {
                     try {
-                        Log.d(TAG, "Attempting rate "+rate+"Hz, bits: "+audioFormat+", channel: "+channelConfig);
+                        Log.d(TAG, "Attempting rate "+rate+", bits: "+audioFormat+", channel: "+channelConfig);
                         int bufferSize = AudioRecord.getMinBufferSize(rate, channelConfig, audioFormat);
 
                         if (bufferSize != AudioRecord.ERROR_BAD_VALUE) {
-                            // check if we can instantiate and have a success
-                            Log.d(TAG, "Success at "+rate+"Hz, bits: "+audioFormat+", channel: "+channelConfig+", format: "+audioFormat+", buffer: "+bufferSize);
+                            Log.d(TAG, "Success at rate "+rate+", bits: "+audioFormat+", channel: "+channelConfig+", format: "+audioFormat+", buffer: "+bufferSize);
                             BufferElements2Rec = bufferSize/audioFormat;
                             AudioRecord recorder = new AudioRecord(MediaRecorder.AudioSource.DEFAULT, rate, channelConfig, audioFormat, bufferSize);
 
-                            if (recorder.getState() == AudioRecord.STATE_INITIALIZED)
-                                return recorder;
+                            if (recorder.getState() == AudioRecord.STATE_INITIALIZED) return recorder;
                         }
                     } catch (Exception e) {
-                        Log.e(TAG, rate + "Exception, keep trying.",e);
+                        Log.e(TAG, rate + "Invalid parms",e);
                     }
                 }
             }
@@ -238,10 +232,7 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
 
     public String getGoodTime(long millis)
     {
-        if(millis < 0)
-        {
-            throw new IllegalArgumentException("Duration must be greater than zero!");
-        }
+        if(millis < 0) throw new IllegalArgumentException("Invalid duration");
 
         return (new SimpleDateFormat("D:mm:ss:SSS")).format(new Date(millis));
     }
