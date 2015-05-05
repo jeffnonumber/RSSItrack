@@ -20,6 +20,8 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.dougan.rssitrack.AudioSetup;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -34,7 +36,7 @@ import java.util.TimerTask;
 public class MainActivity extends ActionBarActivity implements View.OnClickListener{
 
     private TextView textConnected, textIP, textSSID, textRSSI, textTime;
-    private Button btnStop;
+    private Button btnStop, btnStart;
 
     private final Handler hTime = new Handler(); //Handler for timer
     private final String TAG = "RSSITrack";  //Tag for debug
@@ -46,10 +48,11 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
     private WifiManager wManager;
 
     private AudioRecord recorder = null;
-    private static final int[] intSampleRates = new int[] { 8000, 11025, 22050, 44100 };
+    //private static final int[] intSampleRates = new int[] { 8000, 11025, 22050, 44100 };
     private int BufferElements2Rec;
     short sData[];
 
+    boolean bStart = false;
     boolean bStop = false;
 
     //        Galaxy S2 - Success at 8000Hz, bits: 2, channel: 16, format: 2, buffer: 1024
@@ -67,18 +70,21 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
         textRSSI = (TextView)findViewById(R.id.RSSI);
         textTime = (TextView)findViewById(R.id.Time);
 
+        btnStart = (Button) this.findViewById(R.id.btnStart);
         btnStop = (Button) this.findViewById(R.id.btnStop);
+        btnStart.setOnClickListener(this);
         btnStop.setOnClickListener(this);
 
-        try {
-            recorder = getAudioParms();
-            recorder.startRecording();
+/*        try {
+            recorder = AudioSetup.getAudioParms();
+            BufferElements2Rec = AudioSetup.getBuffer();
+            if(recorder != null)recorder.startRecording();
             //Log.d(TAG, "Recorder state " + recorder.getRecordingState());//3 is good
         }catch (IllegalArgumentException e){
             e.printStackTrace();
             recorder = null;
             Toast.makeText (this, "Incompatible Device", Toast.LENGTH_LONG).show();
-        }
+        }*/
 
 
         ConnectivityManager cManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
@@ -89,18 +95,40 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
         sRecID = "Dev"+uid+"Time"+System.currentTimeMillis();
 
 
-        myTimer = new Timer();
+/*        myTimer = new Timer();
         myTimer.schedule(new TimerTask() {
             @Override
             public void run() {
                 hTime.post(pullData);
             }
-        }, 0, 2000);  //Find a way to increase scan rate?
+        }, 0, 2000);  //Find a way to increase scan rate?*/
     }
 
 
     public void onClick(View v) {
-        if (v == btnStop) {
+        if(v == btnStart){
+            try {
+                recorder = AudioSetup.getAudioParms();
+                BufferElements2Rec = AudioSetup.getBuffer();
+                if(recorder != null)recorder.startRecording();
+                bStart = true;
+                //Log.d(TAG, "Recorder state " + recorder.getRecordingState());//3 is good
+            }catch (IllegalArgumentException e){
+                e.printStackTrace();
+                recorder = null;
+                Toast.makeText (this, "Incompatible Device", Toast.LENGTH_LONG).show();
+            }
+
+            myTimer = new Timer();
+            myTimer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    hTime.post(pullData);
+                }
+            }, 0, 2000);  //Find a way to increase scan rate?
+        }
+        else if (v == btnStop && bStart) {
+            bStart = false;
             bStop = true;
             //if(fileWrite(sRecID))
             if(FileWrite.toFile(lScans, new File(getExternalFilesDir(null), sRecID + ".txt"))){
@@ -199,7 +227,7 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
         }
     }*/
 
-    public AudioRecord getAudioParms() {
+/*    public AudioRecord getAudioParms() {
         for (int rate : intSampleRates) {
             for (short audioFormat : new short[] { AudioFormat.ENCODING_PCM_8BIT, AudioFormat.ENCODING_PCM_16BIT }) {
                 for (short channelConfig : new short[] { AudioFormat.CHANNEL_IN_MONO, AudioFormat.CHANNEL_IN_STEREO }) {
@@ -221,7 +249,7 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
             }
         }
         return null;
-    }
+    }*/
 
 
    /* private boolean externalStorageAvailable() {

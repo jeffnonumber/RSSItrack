@@ -56,10 +56,17 @@
         />
 
     <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/sButtonStart"
+        android:id="@+id/btnStart"
+        android:layout_gravity="center_horizontal" />
+
+    <Button
         android:keepScreenOn="true"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/sButton"
+        android:text="@string/sButtonStop"
         android:id="@+id/btnStop"
         android:layout_gravity="center_horizontal" />
 
