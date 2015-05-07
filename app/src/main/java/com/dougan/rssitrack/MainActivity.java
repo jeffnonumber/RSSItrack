@@ -1,9 +1,7 @@
 package com.dougan.rssitrack;
 
 import android.content.Context;
-import android.media.AudioFormat;
 import android.media.AudioRecord;
-import android.media.MediaRecorder;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiInfo;
@@ -20,13 +18,7 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.dougan.rssitrack.AudioSetup;
-
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -48,7 +40,6 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
     private WifiManager wManager;
 
     private AudioRecord recorder = null;
-    //private static final int[] intSampleRates = new int[] { 8000, 11025, 22050, 44100 };
     private int BufferElements2Rec;
     short sData[];
 
@@ -75,43 +66,23 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
         btnStart.setOnClickListener(this);
         btnStop.setOnClickListener(this);
 
-/*        try {
-            recorder = AudioSetup.getAudioParms();
-            BufferElements2Rec = AudioSetup.getBuffer();
-            if(recorder != null)recorder.startRecording();
-            //Log.d(TAG, "Recorder state " + recorder.getRecordingState());//3 is good
-        }catch (IllegalArgumentException e){
-            e.printStackTrace();
-            recorder = null;
-            Toast.makeText (this, "Incompatible Device", Toast.LENGTH_LONG).show();
-        }*/
-
-
         ConnectivityManager cManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
         nInfo = cManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
         wManager = (WifiManager)getSystemService(Context.WIFI_SERVICE);
-
-        String uid = android.os.Build.SERIAL;
-        sRecID = "Dev"+uid+"Time"+System.currentTimeMillis();
-
-
-/*        myTimer = new Timer();
-        myTimer.schedule(new TimerTask() {
-            @Override
-            public void run() {
-                hTime.post(pullData);
-            }
-        }, 0, 2000);  //Find a way to increase scan rate?*/
     }
 
 
     public void onClick(View v) {
+
         if(v == btnStart){
             try {
                 recorder = AudioSetup.getAudioParms();
                 BufferElements2Rec = AudioSetup.getBuffer();
-                if(recorder != null)recorder.startRecording();
-                bStart = true;
+                if(recorder != null){
+                    recorder.startRecording();
+                    bStart = true;
+                    sRecID = "Dev"+android.os.Build.SERIAL+"Time"+System.currentTimeMillis();
+                }
                 //Log.d(TAG, "Recorder state " + recorder.getRecordingState());//3 is good
             }catch (IllegalArgumentException e){
                 e.printStackTrace();
@@ -175,8 +146,9 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
                 textRSSI.setText(sRSSI);
                 textTime.setText(sTime);
 
-                double dAmpMax = 0;
-                sData = new short[BufferElements2Rec];
+                double dAmpMax = AmpMax.getAmpMax(recorder, BufferElements2Rec);
+
+                /*sData = new short[BufferElements2Rec];
                 recorder.read(sData, 0, BufferElements2Rec);
 
                 if(sData.length != 0){
@@ -186,7 +158,7 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
                         }
                     }
                 }
-                else Log.d(TAG, "Buffer empty");
+                else Log.d(TAG, "Buffer empty");*/
 
 
                 lScans.add(new DataPoint(sTime, sRSSI, sSSID, dAmpMax));
@@ -203,60 +175,7 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
         }
     };
 
-/*    public boolean fileWrite(String s){
 
-        try {
-            File file = new File(getExternalFilesDir(null), s+".txt");
-            file.createNewFile();
-            FileOutputStream fOut = new FileOutputStream(file);
-            OutputStreamWriter outWriter = new OutputStreamWriter(fOut);
-            outWriter.append(lScans.toString());
-            outWriter.close();
-            fOut.close();
-
-            Toast.makeText(getApplicationContext(),"Saved",Toast.LENGTH_LONG).show();
-            return true;
-
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-            return false;
-        }
-        catch (IOException e) {
-            e.printStackTrace();
-            return false;
-        }
-    }*/
-
-/*    public AudioRecord getAudioParms() {
-        for (int rate : intSampleRates) {
-            for (short audioFormat : new short[] { AudioFormat.ENCODING_PCM_8BIT, AudioFormat.ENCODING_PCM_16BIT }) {
-                for (short channelConfig : new short[] { AudioFormat.CHANNEL_IN_MONO, AudioFormat.CHANNEL_IN_STEREO }) {
-                    try {
-                        Log.d(TAG, "Attempting rate "+rate+", bits: "+audioFormat+", channel: "+channelConfig);
-                        int bufferSize = AudioRecord.getMinBufferSize(rate, channelConfig, audioFormat);
-
-                        if (bufferSize != AudioRecord.ERROR_BAD_VALUE) {
-                            Log.d(TAG, "Success at rate "+rate+", bits: "+audioFormat+", channel: "+channelConfig+", format: "+audioFormat+", buffer: "+bufferSize);
-                            BufferElements2Rec = bufferSize/audioFormat;
-                            AudioRecord recorder = new AudioRecord(MediaRecorder.AudioSource.DEFAULT, rate, channelConfig, audioFormat, bufferSize);
-
-                            if (recorder.getState() == AudioRecord.STATE_INITIALIZED) return recorder;
-                        }
-                    } catch (Exception e) {
-                        Log.e(TAG, rate + "Invalid parms",e);
-                    }
-                }
-            }
-        }
-        return null;
-    }*/
-
-
-   /* private boolean externalStorageAvailable() {
-        return
-                Environment.MEDIA_MOUNTED
-                        .equals(Environment.getExternalStorageState());
-    }*/
 
     public String getGoodTime(long millis)
     {
