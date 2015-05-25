@@ -27,8 +27,8 @@ import java.util.TimerTask;
 
 public class MainActivity extends ActionBarActivity implements View.OnClickListener{
 
-    private TextView textConnected, textIP, textSSID, textRSSI, textTime;
-    private Button btnStop, btnStart;
+    private TextView textConnected, textIP, textSSID, textRSSI, textTime, textVolume;
+    private Button btnStop, btnStart, btnQuit;
 
     private final Handler hTime = new Handler(); //Handler for timer
     private final String TAG = "RSSITrack";  //Tag for debug
@@ -60,11 +60,15 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
         textSSID = (TextView)findViewById(R.id.SSID);
         textRSSI = (TextView)findViewById(R.id.RSSI);
         textTime = (TextView)findViewById(R.id.Time);
+        textVolume = (TextView)findViewById(R.id.Volume);
 
         btnStart = (Button) this.findViewById(R.id.btnStart);
         btnStop = (Button) this.findViewById(R.id.btnStop);
+        btnQuit = (Button) this.findViewById(R.id.btnQuit);
+
         btnStart.setOnClickListener(this);
         btnStop.setOnClickListener(this);
+        btnQuit.setOnClickListener(this);
 
         ConnectivityManager cManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
         nInfo = cManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
@@ -74,13 +78,15 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
 
     public void onClick(View v) {
 
-        if(v == btnStart){
+        if(v == btnStart && !bStart){
             try {
+                lScans.add(new DataPoint(getGoodTime(System.currentTimeMillis()), "", "", 0));
                 recorder = AudioSetup.getAudioParms();
                 BufferElements2Rec = AudioSetup.getBuffer();
                 if(recorder != null){
                     recorder.startRecording();
                     bStart = true;
+                    bStop = false;
                     sRecID = "Dev"+android.os.Build.SERIAL+"Time"+System.currentTimeMillis();
                 }
                 //Log.d(TAG, "Recorder state " + recorder.getRecordingState());//3 is good
@@ -102,10 +108,23 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
             bStart = false;
             bStop = true;
             //if(fileWrite(sRecID))
-            if(FileWrite.toFile(lScans, new File(getExternalFilesDir(null), sRecID + ".txt"))){
+            if(FileWrite.toFile(lScans, new File(getExternalFilesDir(null), sRecID + ".csv"))){
                 Toast.makeText(getApplicationContext(),"Saved",Toast.LENGTH_LONG).show();
-                this.onPause();
+                if(recorder != null){
+                    recorder.stop();recorder.release();recorder=null;myTimer.cancel();
+                }
+
+                textIP.setText("STOPPED");
+                textSSID.setText("STOPPED");
+                textRSSI.setText("STOPPED");
+                textTime.setText("STOPPED");
+                textVolume.setText("STOPPED");
+
             }else Toast.makeText (this, "Save Failed", Toast.LENGTH_SHORT).show();this.onPause();
+        }
+        else if (v == btnQuit){
+            this.onPause();
+            android.os.Process.killProcess(android.os.Process.myPid()) ;
         }
     }
 
@@ -147,6 +166,9 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
                 textTime.setText(sTime);
 
                 double dAmpMax = AmpMax.getAmpMax(recorder, BufferElements2Rec);
+                String sAmpMax = String.valueOf(dAmpMax);
+
+                textVolume.setText(sAmpMax);
 
                 /*sData = new short[BufferElements2Rec];
                 recorder.read(sData, 0, BufferElements2Rec);
