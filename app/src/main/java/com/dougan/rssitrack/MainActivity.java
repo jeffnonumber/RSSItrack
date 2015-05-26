@@ -70,6 +70,8 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
         btnStop.setOnClickListener(this);
         btnQuit.setOnClickListener(this);
 
+        btnStop.setEnabled(false);
+
         ConnectivityManager cManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
         nInfo = cManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
         wManager = (WifiManager)getSystemService(Context.WIFI_SERVICE);
@@ -89,6 +91,9 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
                     bStop = false;
                     sRecID = "Dev"+android.os.Build.SERIAL+"Time"+System.currentTimeMillis();
                 }
+                btnStart.setText("Recording...");
+                btnStart.setEnabled(false);
+                btnStop.setEnabled(true);
                 //Log.d(TAG, "Recorder state " + recorder.getRecordingState());//3 is good
             }catch (IllegalArgumentException e){
                 e.printStackTrace();
@@ -107,7 +112,10 @@ public class MainActivity extends ActionBarActivity implements View.OnClickListe
         else if (v == btnStop && bStart) {
             bStart = false;
             bStop = true;
-            //if(fileWrite(sRecID))
+            btnStart.setText(R.string.sButtonStart);
+            btnStart.setEnabled(true);
+            btnStop.setEnabled(false);
+
             if(FileWrite.toFile(lScans, new File(getExternalFilesDir(null), sRecID + ".csv"))){
                 Toast.makeText(getApplicationContext(),"Saved",Toast.LENGTH_LONG).show();
                 if(recorder != null){
